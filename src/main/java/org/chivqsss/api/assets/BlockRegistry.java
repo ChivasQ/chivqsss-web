@@ -27,9 +27,9 @@ public class BlockRegistry {
         return jdbcTemplate.query(sql, new DataClassRowMapper<>(BlockDto.class));
     }
 
-    @GetMapping("/blockstate/{name}")
+    @GetMapping("/blockstate")
     @Cacheable("blockstates_cache")
-    public List<BlockStateSQLDto> getBlockStates(@PathVariable("name") String name) {
+    public List<BlockStateSQLDto> getBlockStates(@RequestParam("name") String name) {
         String sql = "SELECT properties::text, model_name, rot_x, rot_y FROM blockstates WHERE block_name = ?";
 
         return jdbcTemplate.query(sql, new DataClassRowMapper<>(BlockStateSQLDto.class), name);

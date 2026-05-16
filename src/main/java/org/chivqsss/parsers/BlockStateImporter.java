@@ -15,9 +15,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Component
-@Order(2)
-public class BlockStateImporter implements CommandLineRunner {
+//@Component
+//@Order(2)
+public class    BlockStateImporter implements CommandLineRunner {
 
     private final JdbcTemplate jdbcTemplate;
     private final Gson gson;

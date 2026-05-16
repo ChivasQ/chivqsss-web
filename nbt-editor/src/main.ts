@@ -4,7 +4,9 @@ const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const editor = new Editor(canvas);
 editor.camera.position.setZ(30);
 
-const modelData = await MinecraftAPI.getBlockModel("minecraft:block/template_anvil");
+const modelData = await MinecraftAPI.getBlockModel("minecraft:block/anvil");
+const modelBlockStates = await MinecraftAPI.getBlockStates("minecraft:anvil");
+// console.log(modelBlockStates)
 // console.log(modelData);
 const mesh = editor.getMeshFromJson(modelData);
 
@@ -12,7 +14,8 @@ if (mesh) {
     editor.addBlock(0, 0, 0, mesh);
 }
 
-const modelData1 = await MinecraftAPI.getBlockModel("minecraft:block/cube");
+const modelData1 = await MinecraftAPI.getBlockModel("minecraft:block/purpur_pillar");
+console.log(modelData1);
 const mesh1 = editor.getMeshFromJson(modelData1);
 
 if (mesh1) {

@@ -8,27 +8,82 @@ export class MinecraftAPI {
     }
 
     static async getBlockStates(blockName: string): Promise<BlockStateDto[]> {
-        const response = await fetch(`/api/assets/blockstate/${blockName}`);
+        const params = new URLSearchParams({ name: blockName });
+        const response = await fetch(`/api/assets/blockstate?${params.toString()}`);
         if (!response.ok) throw new Error('Err loading blockstate');
         
         const data = await response.json();
         
         return data.map((item: any) => ({
             ...item,
-            properties: item.properties ? JSON.parse(item.properties) : {}
+            properties: item.properties || null
         }));
     }
 
-    static async getBlockModel(modelName: string): Promise<BlockModelDto> {
+    static async fetchRawModel(modelName: string): Promise<BlockModelDto | null> {
         const params = new URLSearchParams({ name: modelName });
         const response = await fetch(`/api/assets/block_model?${params.toString()}`);
+        if (!response.ok) return null;
         
-        if (!response.ok) throw new Error('Err loading model');
+        const text = await response.text(); 
+        if (!text) return null;
+
+        const data = JSON.parse(text);
+        return { geometry: data.geometry || null };
+    }
+
+    static async getBlockModel(modelName: string): Promise<BlockModelDto | null> {
+        const normalizedName = modelName.includes(':') ? modelName : `minecraft:${modelName}`;
+        
+        const params = new URLSearchParams({ name: normalizedName });
+        const response = await fetch(`/api/assets/block_model?${params.toString()}`);
+        
+        if (!response.ok) {
+            console.warn(`Модель не найдена: ${normalizedName}`);
+            return null; 
+        }
         
         const data = await response.json();
+        if (!data || !data.geometry) return null;
+
+        const geometry = data.geometry;
+
+        if (geometry.parent && !geometry.parent.endsWith("block/block") && !geometry.parent.endsWith("builtin/generated")) {
+            const data_parent = await this.getBlockModel(geometry.parent);
+
+            if (data_parent && data_parent.geometry) {
+                geometry.textures = {
+                    ...(data_parent.geometry.textures || {}),
+                    ...(geometry.textures || {})
+                };
+
+                geometry.elements = geometry.elements || data_parent.geometry.elements;
+            }
+        }
+
+        if (geometry.textures) {
+            for (const key in geometry.textures) {
+                let value = geometry.textures[key];
+                
+                let depth = 0;
+                while (typeof value === 'string' && value.startsWith('#') && depth < 5) {
+                    const refKey = value.substring(1);
+                    const nextValue = geometry.textures[refKey];
+
+                    if (nextValue === undefined) {
+                        break;
+                    }
+                    
+                    value = nextValue;
+                    depth++;
+                }
+
+                geometry.textures[key] = value;
+            }
+        }
         
         return {
-            geometry: data.geometry || null
+            geometry: geometry
         };
     }
 }

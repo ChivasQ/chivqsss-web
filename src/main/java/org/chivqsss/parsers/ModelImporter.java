@@ -9,9 +9,9 @@ import org.springframework.stereotype.Component;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-@Component
-@Order(1)
+//
+//@Component
+//@Order(1)
 public class ModelImporter implements CommandLineRunner {
 
     private final JdbcTemplate jdbcTemplate;
@@ -27,22 +27,20 @@ public class ModelImporter implements CommandLineRunner {
         for (Path model : models) {
             String jsonContent = Files.readString(model);
 
-            if (jsonContent.contains("elements")) {
-                String fileName = model.getFileName().toString().replace(".json", "");
-                String name = "minecraft:block/" + fileName;
+            String fileName = model.getFileName().toString().replace(".json", "");
+            String name = "minecraft:block/" + fileName;
 
-                PGobject jsonObject = new PGobject();
-                jsonObject.setType("jsonb");
-                jsonObject.setValue(jsonContent);
+            PGobject jsonObject = new PGobject();
+            jsonObject.setType("jsonb");
+            jsonObject.setValue(jsonContent);
 
-                String sql = "INSERT INTO models (name, geometry) VALUES (?, ?) ON CONFLICT (name) DO NOTHING";
+            String sql = "INSERT INTO models (name, geometry) VALUES (?, ?) ON CONFLICT (name) DO NOTHING";
 
-                try {
-                    jdbcTemplate.update(sql, name, jsonObject);
-                    System.out.println("Saved: " + name);
-                } catch (Exception e) {
-                    System.err.println("Err " + name + ": " + e.getMessage());
-                }
+            try {
+                jdbcTemplate.update(sql, name, jsonObject);
+                System.out.println("Saved: " + name);
+            } catch (Exception e) {
+                System.err.println("Err " + name + ": " + e.getMessage());
             }
         }
         System.out.println("Done");
