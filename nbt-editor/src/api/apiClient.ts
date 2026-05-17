@@ -2,6 +2,8 @@ import type { BlockDto, BlockStateDto, BlockModelDto } from '../types/minecraft.
 
 export class MinecraftAPI {
     static cachedBlockstates: Record<string, Promise<BlockStateDto[]>> = {};
+    static cachedRawModels: Record<string, Promise<BlockModelDto | null>> = {};
+
 
     static async getBlocks(): Promise<BlockDto[]> {
         const response = await fetch('/api/assets/blocks');
@@ -32,69 +34,87 @@ export class MinecraftAPI {
     }
 
     static async fetchRawModel(modelName: string): Promise<BlockModelDto | null> {
-        const params = new URLSearchParams({ name: modelName });
-        const response = await fetch(`/api/assets/block_model?${params.toString()}`);
-        if (!response.ok) return null;
-        
-        const text = await response.text(); 
-        if (!text) return null;
+        if (modelName in this.cachedRawModels) {
+            return this.cachedRawModels[modelName]!;
+        }
 
-        const data = JSON.parse(text);
-        return { geometry: data.geometry || null };
+        const params = new URLSearchParams({ name: modelName });
+
+        const fetchPromise = fetch(`/api/assets/block_model?${params.toString()}`)
+            .then(async (response) => {
+                if (!response.ok) throw new Error('Err loading model: ' + modelName);
+                const text = await response.text(); 
+                if (!text) throw new Error('Empty model: ' + modelName);
+                return JSON.parse(text);
+            })
+            .then(data => ({ geometry: data.geometry || null }));
+
+        this.cachedRawModels[modelName] = fetchPromise;
+
+        return fetchPromise;
     }
 
-    static async getBlockModel(modelName: string): Promise<BlockModelDto | null> {
+    static getBlockModel(modelName: string): Promise<BlockModelDto | null> {
         const normalizedName = modelName.includes(':') ? modelName : `minecraft:${modelName}`;
         
-        const params = new URLSearchParams({ name: normalizedName });
-        const response = await fetch(`/api/assets/block_model?${params.toString()}`);
-        
-        if (!response.ok) {
-            console.warn(`Модель не найдена: ${normalizedName}`);
-            return null; 
+        if (modelName in this.cachedRawModels) {
+            return this.cachedRawModels[normalizedName]!;
         }
-        
-        const data = await response.json();
-        if (!data || !data.geometry) return null;
 
-        const geometry = data.geometry;
-
-        if (geometry.parent && !geometry.parent.endsWith("block/block") && !geometry.parent.endsWith("builtin/generated")) {
-            const data_parent = await this.getBlockModel(geometry.parent);
-
-            if (data_parent && data_parent.geometry) {
-                geometry.textures = {
-                    ...(data_parent.geometry.textures || {}),
-                    ...(geometry.textures || {})
-                };
-
-                geometry.elements = geometry.elements || data_parent.geometry.elements;
+        const fetchPromise = (async () => {
+            const params = new URLSearchParams({ name: normalizedName });
+            const response = await fetch(`/api/assets/block_model?${params.toString()}`);
+            
+            if (!response.ok) {
+                console.warn(`Модель не найдена: ${normalizedName}`);
+                return null; 
             }
-        }
+            
+            const data = await response.json();
+            if (!data || !data.geometry) return null;
 
-        if (geometry.textures) {
-            for (const key in geometry.textures) {
-                let value = geometry.textures[key];
-                
-                let depth = 0;
-                while (typeof value === 'string' && value.startsWith('#') && depth < 5) {
-                    const refKey = value.substring(1);
-                    const nextValue = geometry.textures[refKey];
+            const geometry = data.geometry;
 
-                    if (nextValue === undefined) {
-                        break;
-                    }
-                    
-                    value = nextValue;
-                    depth++;
+            if (geometry.parent && !geometry.parent.endsWith("block/block") && !geometry.parent.endsWith("builtin/generated")) {
+                const data_parent = await this.getBlockModel(geometry.parent);
+
+                if (data_parent && data_parent.geometry) {
+                    geometry.textures = {
+                        ...(data_parent.geometry.textures || {}),
+                        ...(geometry.textures || {})
+                    };
+
+                    geometry.elements = geometry.elements || data_parent.geometry.elements;
                 }
-
-                geometry.textures[key] = value;
             }
-        }
-        
-        return {
-            geometry: geometry
-        };
+
+            if (geometry.textures) {
+                for (const key in geometry.textures) {
+                    let value = geometry.textures[key];
+                    
+                    let depth = 0;
+                    while (typeof value === 'string' && value.startsWith('#') && depth < 5) {
+                        const refKey = value.substring(1);
+                        const nextValue = geometry.textures[refKey];
+
+                        if (nextValue === undefined) {
+                            break;
+                        }
+                        
+                        value = nextValue;
+                        depth++;
+                    }
+
+                    geometry.textures[key] = value;
+                }
+            }
+            
+            return {
+                geometry: geometry
+            };
+        })();
+
+        this.cachedRawModels[normalizedName] = fetchPromise;
+        return fetchPromise;
     }
 }
