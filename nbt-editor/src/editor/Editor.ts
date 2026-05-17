@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { BlockDto, BlockStateDto, BlockModelDto } from '../types/minecraft.ts';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { MinecraftAPI } from '../api/apiClient.ts';
+import type { Int } from 'prismarine-nbt';
 
 export class Editor {
     public scene: THREE.Scene;
@@ -23,7 +25,7 @@ export class Editor {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         
-        const grid = new THREE.GridHelper(200, 50);
+        const grid = new THREE.GridHelper(256,16);
         this.scene.add(grid);
         const light = new THREE.AmbientLight(0xffffff);
         this.scene.add(light);
@@ -72,7 +74,7 @@ export class Editor {
         this.renderer.render(this.scene, this.camera);
     }
 
-    public getMeshFromJson(model: BlockModelDto | null): THREE.Mesh | null {
+    public getMeshFromJson(model: BlockModelDto | null, rot_x: number = 0, rot_y: number = 0): THREE.Mesh | null {
         if (model == null) {
             return null;
         }
@@ -112,7 +114,7 @@ export class Editor {
         const fallbackIndex = materials.length - 1;
 
         const geometries: THREE.BufferGeometry[] = [];
-
+        const faceNames = ['east', 'west', 'up', 'down', 'south', 'north'];
         elements.forEach(element => {
             const [x1, y1, z1] = element.from;
             const [x2, y2, z2] = element.to;
@@ -123,7 +125,7 @@ export class Editor {
 
             const boxGeo = new THREE.BoxGeometry(width, height, depth);
 
-            const faceNames = ['east', 'west', 'up', 'down', 'south', 'north'];
+            
             const uvAttribute = boxGeo.attributes.uv;
 
             for (let i = 0; i < 6; i++) {
@@ -192,7 +194,50 @@ export class Editor {
             indexOffset += indexCount;
         });
 
-        const mesh = new THREE.Mesh(mergedGeometry, materials);
-        return mesh;
+    const radX = THREE.MathUtils.degToRad(rot_x || 0);
+    const radY = THREE.MathUtils.degToRad(rot_y || 0);
+
+    if (radX !== 0 || radY !== 0) {
+        mergedGeometry.translate(-8, -8, -8);
+        
+        mergedGeometry.rotateY(radY);
+        mergedGeometry.rotateX(radX);
+        
+        mergedGeometry.translate(8, 8, 8);
+    }
+
+    const mesh = new THREE.Mesh(mergedGeometry, materials);
+    return mesh;
+}   
+
+
+    public async getBlockMesh(name: string | null, blockstate: BlockStateDto | null = null): Promise<THREE.Mesh | null>  {
+        if (name == null) {
+            return null;
+        }
+
+        if (!blockstate) {
+            const modelData = await MinecraftAPI.getBlockModel(name);
+            return this.getMeshFromJson(modelData); 
+        }
+
+        const blockstates = await MinecraftAPI.getBlockStates(name);
+        const keys1 = Object.keys(blockstate.properties);
+
+        for (const bs of blockstates) {
+            const keys2 = Object.keys(bs.properties);
+            
+            const isShallowEqual = keys1.length === keys2.length && 
+                keys1.every(key => bs.properties[key] === blockstate.properties[key]);
+            
+            if (isShallowEqual) {
+                const modelData = await MinecraftAPI.getBlockModel(bs.model_name);
+                return this.getMeshFromJson(modelData, bs.rot_x, bs.rot_y);
+            }
+        }
+
+        console.warn(`Err loading blockstate for block ${name}. default blockstate applied`);
+        const fallbackModelData = await MinecraftAPI.getBlockModel(name);
+        return this.getMeshFromJson(fallbackModelData);
     }
 }

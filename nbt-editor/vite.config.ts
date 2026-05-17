@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 export default defineConfig({
   server: {
@@ -14,5 +15,13 @@ export default defineConfig({
         secure: false,
       }
     }
-  }
+  },
+  plugins: [
+    nodePolyfills({
+      include: ['buffer', 'zlib', 'stream', 'util'],
+      globals: {
+        Buffer: true,
+      },
+    }),
+  ]
 });

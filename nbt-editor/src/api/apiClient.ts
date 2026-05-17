@@ -1,23 +1,34 @@
 import type { BlockDto, BlockStateDto, BlockModelDto } from '../types/minecraft.ts';
 
 export class MinecraftAPI {
+    static cachedBlockstates: Record<string, Promise<BlockStateDto[]>> = {};
+
     static async getBlocks(): Promise<BlockDto[]> {
         const response = await fetch('/api/assets/blocks');
         if (!response.ok) throw new Error('Err loading blocks');
         return response.json();
     }
 
-    static async getBlockStates(blockName: string): Promise<BlockStateDto[]> {
+    static getBlockStates(blockName: string): Promise<BlockStateDto[]> {
+        if (blockName in this.cachedBlockstates) {
+            return this.cachedBlockstates[blockName]!;
+        }
+
         const params = new URLSearchParams({ name: blockName });
-        const response = await fetch(`/api/assets/blockstate?${params.toString()}`);
-        if (!response.ok) throw new Error('Err loading blockstate');
         
-        const data = await response.json();
-        
-        return data.map((item: any) => ({
-            ...item,
-            properties: item.properties || null
-        }));
+        const fetchPromise = fetch(`/api/assets/blockstate?${params.toString()}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Err loading blockstate');
+                return response.json();
+            })
+            .then(data => data.map((item: any) => ({
+                ...item,
+                properties: item.properties || null
+            })));
+
+        this.cachedBlockstates[blockName] = fetchPromise;
+
+        return fetchPromise;
     }
 
     static async fetchRawModel(modelName: string): Promise<BlockModelDto | null> {

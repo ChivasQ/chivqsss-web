@@ -6,9 +6,46 @@
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; width: 100vw; height: 100vh; }
+        .sidebar {
+            height: 100%;
+            width: 200px;
+            position: fixed;
+            z-index: 1;
+            top: 0;
+            left: 0;
+            background-color: #ffffff;
+            overflow-x: hidden;
+            padding: 10px;
+            /* padding-top: 20px; */
+        }
+        #drop-zone {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 165px;
+            height: 200px;
+            padding: 1em;
+            border: 1px solid #cccccc;
+            border-radius: 4px;
+            color: slategray;
+            cursor: pointer;
+        }
+
+        /* #file-input {
+            display: none;
+        } */
+
     </style>
 </head>
 <body>
+    <div class="sidebar">
+        <label id="drop-zone">
+            <!-- Drop images here, or click to upload. -->
+            <input type="file" id="file-input" accept=".nbt" />
+        </label>
+        <ul id="preview"></ul>
+        <button id="clear-btn">Clear</button>
+    </div>
     <canvas id="canvas"></canvas>
     <script type="module" src="src/main.ts"></script>
 </body>
