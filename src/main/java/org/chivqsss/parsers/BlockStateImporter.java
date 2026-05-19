@@ -15,9 +15,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-//@Component
-//@Order(2)
-public class    BlockStateImporter implements CommandLineRunner {
+@Component
+@Order(2)
+public class BlockStateImporter implements CommandLineRunner {
 
     private final JdbcTemplate jdbcTemplate;
     private final Gson gson;
@@ -33,11 +33,15 @@ public class    BlockStateImporter implements CommandLineRunner {
         String blockstatesPath = "D:/Trying to write a mod/chivqsss-web/src/main/resources/static/minecraft/blockstates";
         List<Path> files = AssetParser.findJsonFiles(blockstatesPath);
 
+        String deleteOldBlockSql = "TRUNCATE TABLE blockstates RESTART IDENTITY;";
+        jdbcTemplate.update(deleteOldBlockSql);
+
         for (Path file : files) {
             String jsonContent = Files.readString(file);
             BlockStateDto stateDto = gson.fromJson(jsonContent, BlockStateDto.class);
 
             String blockName = "minecraft:" + file.getFileName().toString().replace(".json", "");
+            String modelName = "minecraft:block/" + file.getFileName().toString().replace(".json", "");
 
             String insertBlockSql = "INSERT INTO blocks (name) VALUES (?) ON CONFLICT (name) DO NOTHING";
             jdbcTemplate.update(insertBlockSql, blockName);
@@ -68,6 +72,9 @@ public class    BlockStateImporter implements CommandLineRunner {
                 }
             }
         }
+
+        String sql = "WITH DefaultStates AS (SELECT DISTINCT ON (block_name) block_name, id FROM blockstates ORDER BY block_name, rot_x ASC, rot_y ASC) UPDATE blocks b SET default_blockstate = ds.id FROM DefaultStates ds WHERE b.name = ds.block_name;";
+        jdbcTemplate.update(sql);
 
     }
 

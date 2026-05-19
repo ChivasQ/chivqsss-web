@@ -22,7 +22,7 @@ public class BlockRegistry {
     @GetMapping("/blocks")
     @Cacheable("blocks_cache")
     public List<BlockDto> getBlockRegistry() {
-        String sql = "SELECT name, preview, model_name FROM blocks";
+        String sql = "SELECT name, model_name FROM blocks";
 
         return jdbcTemplate.query(sql, new DataClassRowMapper<>(BlockDto.class));
     }
@@ -33,6 +33,17 @@ public class BlockRegistry {
         String sql = "SELECT properties::text, model_name, rot_x, rot_y FROM blockstates WHERE block_name = ?";
 
         return jdbcTemplate.query(sql, new DataClassRowMapper<>(BlockStateSQLDto.class), name);
+    }
+
+    @GetMapping("/def_blockstate")
+    @Cacheable("def_blockstates_cache")
+    public BlockStateSQLDto getDefaultBlockState(@RequestParam("id") String id) {
+        String sql = "SELECT properties::text, model_name, rot_x, rot_y FROM blockstates WHERE id = ?";
+        int int_id = Integer.parseInt(id);
+        return jdbcTemplate.query(sql, new DataClassRowMapper<>(BlockStateSQLDto.class), int_id)
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     @GetMapping("/block_model")

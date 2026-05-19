@@ -74,7 +74,7 @@ export class Editor {
         this.renderer.render(this.scene, this.camera);
     }
 
-    public getMeshFromJson(model: BlockModelDto | null, rot_x: number = 0, rot_y: number = 0): THREE.Mesh | null {
+    public getMeshFromJson(model: BlockModelDto | null, rot_x: number = 0, rot_y: number = 0, name: string = ""): THREE.Mesh | null {
         if (model == null) {
             return null;
         }
@@ -92,7 +92,7 @@ export class Editor {
         let matIndex = 0;
         for (const [key, path] of Object.entries(textures)) {
             if (typeof path !== 'string') {
-                console.warn(`Отсутствует путь для текстуры: #${key}`);
+                console.warn(`No texture for key: #${key} in block: ${name}`);
                 continue;
             }
             const cleanPath = (path as string).replace('minecraft:', '');
@@ -232,7 +232,7 @@ export class Editor {
             
             if (isShallowEqual) {
                 const modelData = await MinecraftAPI.getBlockModel(bs.model_name);
-                return this.getMeshFromJson(modelData, bs.rot_x, bs.rot_y);
+                return this.getMeshFromJson(modelData, bs.rot_x, bs.rot_y, name);
             }
         }
 

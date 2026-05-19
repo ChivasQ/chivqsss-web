@@ -10,8 +10,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 //
-//@Component
-//@Order(1)
+@Component
+@Order(1)
 public class ModelImporter implements CommandLineRunner {
 
     private final JdbcTemplate jdbcTemplate;
