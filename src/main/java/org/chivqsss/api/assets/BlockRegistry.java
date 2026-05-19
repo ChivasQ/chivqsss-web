@@ -4,6 +4,7 @@ import org.chivqsss.parsers.models.BLockModelSQLDto;
 import org.chivqsss.parsers.models.BlockDto;
 import org.chivqsss.parsers.models.BlockStateSQLDto;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.jdbc.core.DataClassRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +23,7 @@ public class BlockRegistry {
     @GetMapping("/blocks")
     @Cacheable("blocks_cache")
     public List<BlockDto> getBlockRegistry() {
-        String sql = "SELECT name, model_name FROM blocks";
+        String sql = "SELECT name, default_blockstate FROM blocks";
 
         return jdbcTemplate.query(sql, new DataClassRowMapper<>(BlockDto.class));
     }

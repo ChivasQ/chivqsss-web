@@ -1,11 +1,11 @@
-import type { BlockDto, BlockStateDto, BlockModelDto } from '../types/minecraft.ts';
+import type { Block1Dto, BlockStateDto, BlockModelDto } from '../types/minecraft.ts';
 
 export class MinecraftAPI {
     static cachedBlockstates: Record<string, Promise<BlockStateDto[]>> = {};
     static cachedRawModels: Record<string, Promise<BlockModelDto | null>> = {};
 
 
-    static async getBlocks(): Promise<BlockDto[]> {
+    static async getBlocks(): Promise<Block1Dto[]> {
         const response = await fetch('/api/assets/blocks');
         if (!response.ok) throw new Error('Err loading blocks');
         return response.json();
@@ -31,6 +31,30 @@ export class MinecraftAPI {
         this.cachedBlockstates[blockName] = fetchPromise;
 
         return fetchPromise;
+    }
+
+    static getDefaultBlockState(id: string): Promise<BlockStateDto | null> {
+        const params = new URLSearchParams({ id: id });
+
+        return fetch(`/api/assets/def_blockstate?${params.toString()}`)
+            .then(async (response) => {
+                if (!response.ok) {
+                    if (response.status === 404) return null;
+                    throw new Error(`Err loading default blockstate for id: ${id}`);
+                }
+                
+                const text = await response.text();
+                if (!text) return null;
+                
+                const data = JSON.parse(text);
+                
+                return {
+                    ...data,
+                    properties: typeof data.properties === 'string' 
+                        ? JSON.parse(data.properties) 
+                        : (data.properties || null)
+                };
+            });
     }
 
     static async fetchRawModel(modelName: string): Promise<BlockModelDto | null> {

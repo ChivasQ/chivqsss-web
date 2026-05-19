@@ -34,17 +34,24 @@
         /* #file-input {
             display: none;
         } */
-
+        #block-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <label id="drop-zone">
-            <!-- Drop images here, or click to upload. -->
-            <input type="file" id="file-input" accept=".nbt" />
-        </label>
-        <ul id="preview"></ul>
-        <button id="clear-btn">Clear</button>
+        <div class="closable">
+            <label id="drop-zone">
+                <!-- Drop images here, or click to upload. -->
+                <input type="file" id="file-input" accept=".nbt" />
+            </label>
+            <ul id="preview"></ul>
+            <button id="clear-btn">Clear</button>
+        </div>
+        <div id="block-list"></div>
     </div>
     <canvas id="canvas"></canvas>
     <script type="module" src="src/main.ts"></script>

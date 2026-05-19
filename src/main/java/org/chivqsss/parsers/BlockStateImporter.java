@@ -15,8 +15,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Component
-@Order(2)
+//@Component
+//@Order(2)
 public class BlockStateImporter implements CommandLineRunner {
 
     private final JdbcTemplate jdbcTemplate;

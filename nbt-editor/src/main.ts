@@ -4,8 +4,33 @@ import * as nbt from 'prismarine-nbt';
 import type { BlockDto, BlockStateDto, BlockModelDto } from './types/minecraft.ts';
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+const block_list = document.getElementById("block-list");
 const editor = new Editor(canvas);
 editor.camera.position.setZ(30);
+
+const blocks = await MinecraftAPI.getBlocks();
+let list_buffer = new DocumentFragment();
+for (const element of blocks) {
+    let card = document.createElement('div');
+    card.className = "block-card";
+    card.style = "width:32px; height:32px;";
+
+    let image = document.createElement('img');
+    image.src = `/api/assets/preview?name=${element.name}`;
+    image.style = "width:32px; height:32px;";
+    image.loading = "lazy";
+    card.appendChild(image);
+    list_buffer.appendChild(card);
+}
+
+block_list?.appendChild(list_buffer);
+
+
+
+
+
+
+
 
 // const modelData = await MinecraftAPI.getBlockModel("minecraft:block/anvil");
 // const modelBlockStates = await MinecraftAPI.getBlockStates("minecraft:anvil");
@@ -83,7 +108,7 @@ document.getElementById('file-input')?.addEventListener('change', async (event) 
         }
         
     } catch (err) {
-        console.error("Ошибка чтения NBT:", err);
+        console.error("Err reading NBT:", err);
     }
 });
 

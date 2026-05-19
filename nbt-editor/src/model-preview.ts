@@ -1,80 +1,86 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { BlockDto, BlockStateDto, BlockModelDto } from '../types/minecraft.ts';
+import type { BlockDto, BlockStateDto, BlockModelDto } from './types/minecraft.ts';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { MinecraftAPI } from '../api/apiClient.ts';
-import type { Int } from 'prismarine-nbt';
+import { MinecraftAPI } from './api/apiClient.ts';
+const scene = new THREE.Scene();
 
-export class Editor {
-    public scene: THREE.Scene;
-    public camera: THREE.PerspectiveCamera;
-    public renderer: THREE.WebGLRenderer;
-    public controls: OrbitControls;
-    public texLoader: THREE.TextureLoader;
-    
-    public blocks: Map<string, THREE.Mesh>;
+const frustumSize = 28; 
+const camera = new THREE.OrthographicCamera(
+    frustumSize / -2, frustumSize / 2, 
+    frustumSize / 2, frustumSize / -2, 
+    0.1, 1000
+);
 
-    public constructor(canvasElement: HTMLCanvasElement) {
-        this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.renderer = new THREE.WebGLRenderer({ 
-            canvas: canvasElement
-        });
-        this.texLoader = new THREE.TextureLoader();
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        
-        const grid = new THREE.GridHelper(256,16);
-        this.scene.add(grid);
-        const light = new THREE.AmbientLight(0xffffff);
-        this.scene.add(light);
+const renderer = new THREE.WebGLRenderer({ 
+    canvas: document.getElementById("canvas") as HTMLCanvasElement,
+    alpha: true,
+    preserveDrawingBuffer: true,
+    antialias: true
+});
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(1);
+renderer.setSize(128, 128);
 
-        this.blocks = new Map();
+const texLoader = new THREE.TextureLoader();
 
-        this.render = this.render.bind(this);
+const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+scene.add(ambientLight);
+
+camera.position.set(-16, 14, -16);
+camera.lookAt(0, 0, 0);
+
+// const params = new URLSearchParams(window.location.search);
+const blocks = await MinecraftAPI.getBlocks();
+console.log(blocks);
+
+for (const element of blocks) {
+    const block_name = element.name
+    const default_blockstate = element.defaultBlockstate;
+    if (!default_blockstate) {
+        continue
+    }
+    console.log(block_name, default_blockstate)
+    const state_data = await MinecraftAPI.getDefaultBlockState(default_blockstate);
+    const mesh = await getBlockMesh(block_name, state_data);
+    if (mesh != null) {
+        mesh.position.set(-8, -8, -8);
+        scene.add(mesh);
+    } else {
+        continue;
     }
 
-    private getBlockKey(x: number, y: number, z: number): string {
-        return `${x}_${y}_${z}`;
-    }
-
-    public addBlock(x: number, y: number, z: number, mesh: THREE.Mesh) {
-        const key = this.getBlockKey(x, y, z);
-        
-        if (this.blocks.has(key)) {
-            this.removeBlock(x, y, z);
+    renderer.render(scene, camera);
+    if (mesh != null) {
+        // const image = renderer.domElement.toDataURL('image/png');
+        const imageBlob = await new Promise<Blob | null>(resolve => renderer.domElement.toBlob(resolve, 'image/png'));
+        if (imageBlob != null) {
+            let formData = new FormData();
+            formData.append("name", block_name as string);
+            formData.append("preview", imageBlob, `${block_name}.png`);
+            let response = await fetch('/api/assets/put-preview', {
+                method: 'POST',
+                body: formData
+            });
+            console.log(response);
         }
+        scene.remove(mesh);
 
-        mesh.position.set(x, y, z);
-        this.scene.add(mesh);
-        this.blocks.set(key, mesh);
-    }
+        mesh.geometry.dispose();
 
-    public removeBlock(x: number, y: number, z: number) {
-        const key = this.getBlockKey(x, y, z);
-        const mesh = this.blocks.get(key);
-
-        if (mesh) {
-            this.scene.remove(mesh);
-            this.blocks.delete(key);
-
-            mesh.geometry.dispose();
-            if (Array.isArray(mesh.material)) {
-                mesh.material.forEach(m => m.dispose());
-            } else {
-                mesh.material.dispose();
-            }
+        if (Array.isArray(mesh.material)) {
+            mesh.material.forEach(mat => mat.dispose());
+        } else {
+            mesh.material.dispose();
         }
     }
+}
 
-    public render() {
-        requestAnimationFrame(this.render);
-        this.controls.update(); 
-        this.renderer.render(this.scene, this.camera);
-    }
 
-    public getMeshFromJson(model: BlockModelDto | null, rot_x: number = 0, rot_y: number = 0, name: string = ""): THREE.Mesh | null {
+
+
+
+
+async function getMeshFromJson(model: BlockModelDto | null, rot_x: number = 0, rot_y: number = 0, name: string = ""): Promise<THREE.Mesh | null> {
         if (model == null) {
             return null;
         }
@@ -97,7 +103,7 @@ export class Editor {
             }
             const cleanPath = (path as string).replace('minecraft:', '');
             
-            const texture = this.texLoader.load(`/minecraft/textures/${cleanPath}.png`);
+            const texture = await texLoader.loadAsync(`/minecraft/textures/${cleanPath}.png`);
             
             texture.magFilter = THREE.NearestFilter;
             texture.minFilter = THREE.NearestFilter;
@@ -215,33 +221,33 @@ export class Editor {
 }   
 
 
-    public async getBlockMesh(name: string | null, blockstate: BlockStateDto | null = null): Promise<THREE.Mesh | null>  {
-        if (name == null) {
-            return null;
-        }
-
-        if (!blockstate) {
-            const modelData = await MinecraftAPI.getBlockModel(name);
-            return this.getMeshFromJson(modelData); 
-        }
-
-        const blockstates = await MinecraftAPI.getBlockStates(name);
-        const keys1 = Object.keys(blockstate.properties);
-
-        for (const bs of blockstates) {
-            const keys2 = Object.keys(bs.properties);
-            
-            const isShallowEqual = keys1.length === keys2.length && 
-                keys1.every(key => bs.properties[key] === blockstate.properties[key]);
-            
-            if (isShallowEqual) {
-                const modelData = await MinecraftAPI.getBlockModel(bs.model_name);
-                return this.getMeshFromJson(modelData, bs.rot_x, bs.rot_y, name);
-            }
-        }
-
-        console.warn(`Err loading blockstate for block ${name}. default blockstate applied`);
-        const fallbackModelData = await MinecraftAPI.getBlockModel(name);
-        return this.getMeshFromJson(fallbackModelData);
+async function getBlockMesh(name: string | null, blockstate: BlockStateDto | null = null): Promise<THREE.Mesh | null>  {
+    if (name == null) {
+        return null;
     }
+
+    if (!blockstate) {
+        const modelData = await MinecraftAPI.getBlockModel(name);
+        return getMeshFromJson(modelData); 
+    }
+
+    const blockstates = await MinecraftAPI.getBlockStates(name);
+    const keys1 = Object.keys(blockstate.properties);
+
+    for (const bs of blockstates) {
+        const keys2 = Object.keys(bs.properties);
+        
+        const isShallowEqual = keys1.length === keys2.length && 
+            keys1.every(key => bs.properties[key] === blockstate.properties[key]);
+        
+        if (isShallowEqual) {
+            const modelData = await MinecraftAPI.getBlockModel(bs.model_name);
+            return getMeshFromJson(modelData, bs.rot_x, bs.rot_y, name);
+        }
+    }
+
+    console.warn(`Err loading blockstate for block ${name}. default blockstate applied`);
+    const fallbackModelData = await MinecraftAPI.getBlockModel(name);
+    return getMeshFromJson(fallbackModelData);
 }
+

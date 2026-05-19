@@ -1,7 +1,12 @@
 export interface BlockDto {
     name: string;
     preview: string | null;
-    modelName: string;
+    defaultBlockstate: string;
+}
+
+export interface Block1Dto {
+    name: string;
+    defaultBlockstate: string;
 }
 
 export interface BlockStateDto {
